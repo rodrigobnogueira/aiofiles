@@ -1,6 +1,7 @@
 import io
 import os
 import platform
+import shutil
 import sys
 
 import pytest
@@ -154,3 +155,55 @@ async def test_temporary_directory(prefix, suffix, tmp_path):
         assert d[-1] == suffix
         assert d.split(os.sep)[-1][0] == prefix
     assert not os.path.exists(dir_path)
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 10),
+    reason="ignore_cleanup_errors was added to tempfile.TemporaryDirectory in 3.10",
+)
+async def test_temporary_directory_ignore_cleanup_errors(tmp_path):
+    """TemporaryDirectory accepts ignore_cleanup_errors where supported."""
+    dir_path = None
+
+    async with tempfile.TemporaryDirectory(
+        dir=tmp_path, ignore_cleanup_errors=True
+    ) as d:
+        dir_path = d
+        assert os.path.exists(dir_path)
+        assert os.path.isdir(dir_path)
+
+    assert not os.path.exists(dir_path)
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 12),
+    reason="delete was added to tempfile.TemporaryDirectory in 3.12",
+)
+async def test_temporary_directory_delete_false(tmp_path):
+    """TemporaryDirectory can persist after context manager when delete=False."""
+    dir_path = None
+    marker_file = None
+
+    async with tempfile.TemporaryDirectory(dir=tmp_path, delete=False) as d:
+        dir_path = d
+        marker_file = os.path.join(dir_path, "marker.txt")
+        with open(marker_file, "w") as f:
+            f.write("marker")
+        assert os.path.exists(marker_file)
+
+    assert os.path.exists(dir_path)
+    assert os.path.exists(marker_file)
+    shutil.rmtree(dir_path)
+
+
+async def test_mkdtemp(tmp_path):
+    """mkdtemp creates a directory that persists until explicitly removed."""
+    dir_path = await tempfile.mkdtemp(prefix="aiofiles-", suffix="-keep", dir=tmp_path)
+
+    basename = os.path.basename(dir_path)
+    assert os.path.exists(dir_path)
+    assert os.path.isdir(dir_path)
+    assert basename.startswith("aiofiles-")
+    assert basename.endswith("-keep")
+
+    shutil.rmtree(dir_path)

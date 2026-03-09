@@ -130,8 +130,11 @@ several useful `os` functions that deal with files:
 - NamedTemporaryFile
 - SpooledTemporaryFile
 - TemporaryDirectory
+- mkdtemp
 
-Results return wrapped with a context manager allowing use with async with and async for.
+The temporary file/directory interfaces return wrapped objects that can be used
+with `async with` and `async for`. `mkdtemp` is an async function that returns
+the created directory path and does not auto-delete it.
 
 ```python
 async with aiofiles.tempfile.NamedTemporaryFile('wb+') as f:
